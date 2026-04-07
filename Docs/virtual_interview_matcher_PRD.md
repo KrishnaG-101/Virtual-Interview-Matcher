@@ -1,11 +1,13 @@
 # Product Requirements Document
+
 ## Virtual Interview Matcher — HGM-07
+
 **Classification:** Systems / AI  
 **Project Code:** HGM-07  
 **Track:** ML Ranking · NLP · Backend Systems  
 **Domain:** Gov / HR Tech  
 **Version:** 1.0  
-**Last Updated:** April 2026  
+**Last Updated:** April 2026
 
 ---
 
@@ -55,6 +57,7 @@ In government and enterprise HR contexts:
 ### What we're solving
 
 Build a system that:
+
 - Ingests structured and unstructured data from both candidates and experts
 - Uses NLP + embeddings to understand semantic skill overlap (not just keyword matching)
 - Produces a ranked, scored, explainable list of expert-candidate pairings
@@ -67,13 +70,13 @@ Build a system that:
 
 ### Primary Goals
 
-| Goal | Metric | Target |
-|------|--------|--------|
-| Accurate skill matching | Top-3 expert hit rate (expert chosen by admin is in top 3 ML suggestions) | ≥ 80% |
-| Low latency matching | Time to generate ranked list after submission | < 5 seconds |
-| System availability | Uptime during demo/eval period | ≥ 99% |
-| Explainability | Every match score has a breakdown (skills %, exp %, availability %) | 100% of results |
-| Usability | Admin can assign an expert without reading docs | Task completion in < 3 clicks |
+| Goal                    | Metric                                                                    | Target                        |
+| ----------------------- | ------------------------------------------------------------------------- | ----------------------------- |
+| Accurate skill matching | Top-3 expert hit rate (expert chosen by admin is in top 3 ML suggestions) | ≥ 80%                         |
+| Low latency matching    | Time to generate ranked list after submission                             | < 5 seconds                   |
+| System availability     | Uptime during demo/eval period                                            | ≥ 99%                         |
+| Explainability          | Every match score has a breakdown (skills %, exp %, availability %)       | 100% of results               |
+| Usability               | Admin can assign an expert without reading docs                           | Task completion in < 3 clicks |
 
 ### Secondary Goals
 
@@ -88,18 +91,21 @@ Build a system that:
 ### Roles
 
 #### Candidate
+
 - Uploads resume (PDF)
 - Fills in a structured profile (domain, experience level, preferred interview slot)
 - Can view their match status (which expert is assigned, interview time)
 - Cannot see scores or other candidates
 
 #### Expert / Evaluator
+
 - Creates a profile (domain expertise, years of experience, skills, availability slots)
 - Receives notifications when assigned to a candidate interview
 - Can flag unavailability or request reassignment
 - Cannot see other experts' profiles
 
 #### HR Admin
+
 - Uploads batch candidate data or manages individual submissions
 - Reviews ML-generated match shortlists
 - Approves, overrides, or re-runs matching for any candidate
@@ -107,6 +113,7 @@ Build a system that:
 - Manages the expert pool (add, edit, deactivate experts)
 
 #### System (internal)
+
 - Runs async ML jobs triggered by candidate submission
 - Maintains embedding index for all experts
 - Generates and stores match records with full score breakdowns
@@ -166,6 +173,7 @@ Build a system that:
 **Description:** Candidate creates account and submits their profile.
 
 **Inputs:**
+
 - Resume upload (PDF, max 5MB)
 - Name, email, phone
 - Target role / domain
@@ -173,6 +181,7 @@ Build a system that:
 - Preferred interview slots (multi-select calendar)
 
 **Processing:**
+
 - Resume stored to S3 with UUID filename
 - Profile stored to `candidates` table
 - Async NLP job triggered immediately on submission
@@ -180,6 +189,7 @@ Build a system that:
 **Output:** Confirmation screen with status "Your profile is being processed"
 
 **Edge cases:**
+
 - Corrupted or image-only PDFs → fallback to form-only data, flag for manual review
 - Duplicate email → block with clear error
 - No slots selected → allow submission but flag as "schedule pending"
@@ -191,6 +201,7 @@ Build a system that:
 **Description:** Experts register with structured domain/skill data.
 
 **Inputs:**
+
 - Name, email, designation
 - Primary domain (dropdown: Engineering / Finance / Law / Medicine / Science / Admin / Other)
 - Skills (freeform tags, max 20)
@@ -199,6 +210,7 @@ Build a system that:
 - Bio / description (optional, used in embedding)
 
 **Processing:**
+
 - Profile stored to `experts` table
 - Embedding computed and stored in Qdrant immediately on save
 - On profile update → re-embed and update Qdrant index
@@ -212,6 +224,7 @@ Build a system that:
 **Description:** Extracts structured data from raw resume text.
 
 **Extracted fields:**
+
 - `skills[]` — list of technical and soft skills
 - `experience_years` — total years inferred from work history
 - `domain` — primary domain classification
@@ -219,12 +232,14 @@ Build a system that:
 - `raw_text` — full cleaned text (used for embedding)
 
 **Implementation:**
+
 - PDF text extraction: `pdfplumber` or `PyMuPDF`
 - NLP: `spaCy` (en_core_web_lg) for NER + custom skill matcher
 - Skills dictionary: curated list of ~2000 skills across domains
 - Domain classifier: fine-tuned or zero-shot classification using HuggingFace
 
 **Failure modes:**
+
 - Scanned PDF (no text layer) → OCR with `pytesseract`, lower confidence flag
 - Non-English resume → detect language, flag for manual review
 - Very short resume (< 100 tokens) → flag as "incomplete parse"
@@ -238,10 +253,12 @@ Build a system that:
 **Model:** `sentence-transformers/all-mpnet-base-v2` (768 dimensions, strong on professional text)
 
 **What gets embedded:**
+
 - Candidates: concatenation of `domain + skills + experience_summary + raw_resume_text` (truncated to 512 tokens)
 - Experts: concatenation of `domain + skills + bio + designation`
 
 **Vector store:** Qdrant (self-hosted or Qdrant Cloud)
+
 - Collection: `experts` (pre-indexed, updated on profile change)
 - Collection: `candidates` (added on submission, never queried against — only used for logging)
 
@@ -256,6 +273,7 @@ Build a system that:
 See [Section 10](#10-scoring-engine) for full scoring breakdown.
 
 **Output per match:**
+
 ```json
 {
   "expert_id": "uuid",
@@ -280,6 +298,7 @@ See [Section 10](#10-scoring-engine) for full scoring breakdown.
 **Description:** Central interface for HR admins to manage the full matching workflow.
 
 **Views:**
+
 - **Candidate queue** — list of all submitted candidates, their parse status, and match status
 - **Match review** — for a selected candidate, shows ranked expert shortlist with score breakdowns
 - **Expert pool** — full list of experts, filter by domain/availability
@@ -287,6 +306,7 @@ See [Section 10](#10-scoring-engine) for full scoring breakdown.
 - **Override panel** — admin can manually assign any expert, with a required reason field
 
 **Actions:**
+
 - Approve match (confirm top-ranked expert)
 - Override match (pick a different expert + add reason)
 - Re-run matching (re-trigger the ML pipeline for a candidate)
@@ -298,12 +318,12 @@ See [Section 10](#10-scoring-engine) for full scoring breakdown.
 
 **Description:** Automated emails/alerts on key events.
 
-| Trigger | Recipient | Message |
-|---------|-----------|---------|
-| Candidate submission received | Candidate | "Profile received, processing..." |
-| Match ready for review | Admin | "New match ready: [Candidate Name]" |
-| Expert assigned | Expert | "You've been assigned to interview [Candidate Name] on [Date]" |
-| Expert declines | Admin | "Expert [Name] declined — reassignment needed" |
+| Trigger                       | Recipient | Message                                                        |
+| ----------------------------- | --------- | -------------------------------------------------------------- |
+| Candidate submission received | Candidate | "Profile received, processing..."                              |
+| Match ready for review        | Admin     | "New match ready: [Candidate Name]"                            |
+| Expert assigned               | Expert    | "You've been assigned to interview [Candidate Name] on [Date]" |
+| Expert declines               | Admin     | "Expert [Name] declined — reassignment needed"                 |
 
 **Implementation:** Simple email via `FastAPI-Mail` + SMTP, or webhook-based. Async, non-blocking.
 
@@ -313,72 +333,72 @@ See [Section 10](#10-scoring-engine) for full scoring breakdown.
 
 ### candidates
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | UUID (PK) | |
-| email | VARCHAR(255) UNIQUE | |
-| name | VARCHAR(255) | |
-| domain | VARCHAR(100) | |
-| experience_level | ENUM(fresher, mid, senior) | |
-| resume_s3_key | VARCHAR(500) | |
-| parsed_skills | JSONB | array of strings |
-| experience_years | INTEGER | extracted by NLP |
-| embedding_id | VARCHAR(255) | Qdrant point ID |
-| parse_status | ENUM(pending, done, failed) | |
-| created_at | TIMESTAMP | |
+| Column           | Type                        | Notes            |
+| ---------------- | --------------------------- | ---------------- |
+| id               | UUID (PK)                   |                  |
+| email            | VARCHAR(255) UNIQUE         |                  |
+| name             | VARCHAR(255)                |                  |
+| domain           | VARCHAR(100)                |                  |
+| experience_level | ENUM(fresher, mid, senior)  |                  |
+| resume_s3_key    | VARCHAR(500)                |                  |
+| parsed_skills    | JSONB                       | array of strings |
+| experience_years | INTEGER                     | extracted by NLP |
+| embedding_id     | VARCHAR(255)                | Qdrant point ID  |
+| parse_status     | ENUM(pending, done, failed) |                  |
+| created_at       | TIMESTAMP                   |                  |
 
 ### experts
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | UUID (PK) | |
-| email | VARCHAR(255) UNIQUE | |
-| name | VARCHAR(255) | |
-| designation | VARCHAR(255) | |
-| domain | VARCHAR(100) | |
-| skills | JSONB | array of strings |
-| experience_years | INTEGER | |
-| bio | TEXT | |
-| embedding_id | VARCHAR(255) | Qdrant point ID |
-| is_active | BOOLEAN | default true |
-| created_at | TIMESTAMP | |
+| Column           | Type                | Notes            |
+| ---------------- | ------------------- | ---------------- |
+| id               | UUID (PK)           |                  |
+| email            | VARCHAR(255) UNIQUE |                  |
+| name             | VARCHAR(255)        |                  |
+| designation      | VARCHAR(255)        |                  |
+| domain           | VARCHAR(100)        |                  |
+| skills           | JSONB               | array of strings |
+| experience_years | INTEGER             |                  |
+| bio              | TEXT                |                  |
+| embedding_id     | VARCHAR(255)        | Qdrant point ID  |
+| is_active        | BOOLEAN             | default true     |
+| created_at       | TIMESTAMP           |                  |
 
 ### availability_slots
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | UUID (PK) | |
-| user_id | UUID (FK) | references candidates or experts |
-| user_type | ENUM(candidate, expert) | |
-| slot_start | TIMESTAMP | |
-| slot_end | TIMESTAMP | |
-| is_booked | BOOLEAN | default false |
+| Column     | Type                    | Notes                            |
+| ---------- | ----------------------- | -------------------------------- |
+| id         | UUID (PK)               |                                  |
+| user_id    | UUID (FK)               | references candidates or experts |
+| user_type  | ENUM(candidate, expert) |                                  |
+| slot_start | TIMESTAMP               |                                  |
+| slot_end   | TIMESTAMP               |                                  |
+| is_booked  | BOOLEAN                 | default false                    |
 
 ### matches
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | UUID (PK) | |
-| candidate_id | UUID (FK) | |
-| expert_id | UUID (FK) | |
-| total_score | FLOAT | 0.0–1.0 |
-| score_breakdown | JSONB | all sub-scores |
-| rank | INTEGER | 1 = best |
-| explanation | TEXT | auto-generated |
-| status | ENUM(suggested, approved, overridden, declined) | |
-| override_reason | TEXT | nullable |
-| assigned_by | UUID | admin user ID |
-| created_at | TIMESTAMP | |
+| Column          | Type                                            | Notes          |
+| --------------- | ----------------------------------------------- | -------------- |
+| id              | UUID (PK)                                       |                |
+| candidate_id    | UUID (FK)                                       |                |
+| expert_id       | UUID (FK)                                       |                |
+| total_score     | FLOAT                                           | 0.0–1.0        |
+| score_breakdown | JSONB                                           | all sub-scores |
+| rank            | INTEGER                                         | 1 = best       |
+| explanation     | TEXT                                            | auto-generated |
+| status          | ENUM(suggested, approved, overridden, declined) |                |
+| override_reason | TEXT                                            | nullable       |
+| assigned_by     | UUID                                            | admin user ID  |
+| created_at      | TIMESTAMP                                       |                |
 
 ### users (admins)
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | UUID (PK) | |
-| email | VARCHAR(255) UNIQUE | |
-| role | ENUM(admin, superadmin) | |
-| hashed_password | VARCHAR(500) | |
-| created_at | TIMESTAMP | |
+| Column          | Type                    | Notes |
+| --------------- | ----------------------- | ----- |
+| id              | UUID (PK)               |       |
+| email           | VARCHAR(255) UNIQUE     |       |
+| role            | ENUM(admin, superadmin) |       |
+| hashed_password | VARCHAR(500)            |       |
+| created_at      | TIMESTAMP               |       |
 
 ---
 
@@ -389,48 +409,48 @@ Authentication: JWT Bearer token. Role-based access enforced per endpoint.
 
 ### Auth
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| POST | `/auth/register` | Register candidate or expert | Public |
-| POST | `/auth/login` | Returns JWT | Public |
-| POST | `/auth/refresh` | Refresh access token | User |
+| Method | Endpoint         | Description                  | Auth   |
+| ------ | ---------------- | ---------------------------- | ------ |
+| POST   | `/auth/register` | Register candidate or expert | Public |
+| POST   | `/auth/login`    | Returns JWT                  | Public |
+| POST   | `/auth/refresh`  | Refresh access token         | User   |
 
 ### Candidates
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| POST | `/candidates/` | Create profile + upload resume | Candidate |
-| GET | `/candidates/{id}` | Get candidate profile | Admin |
-| GET | `/candidates/` | List all candidates (paginated) | Admin |
-| PATCH | `/candidates/{id}` | Update profile | Candidate/Admin |
+| Method | Endpoint           | Description                     | Auth            |
+| ------ | ------------------ | ------------------------------- | --------------- |
+| POST   | `/candidates/`     | Create profile + upload resume  | Candidate       |
+| GET    | `/candidates/{id}` | Get candidate profile           | Admin           |
+| GET    | `/candidates/`     | List all candidates (paginated) | Admin           |
+| PATCH  | `/candidates/{id}` | Update profile                  | Candidate/Admin |
 
 ### Experts
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| POST | `/experts/` | Create expert profile | Expert/Admin |
-| GET | `/experts/{id}` | Get expert profile | Admin |
-| GET | `/experts/` | List all experts | Admin |
-| PATCH | `/experts/{id}` | Update profile (triggers re-embed) | Expert/Admin |
-| DELETE | `/experts/{id}` | Deactivate expert | Admin |
+| Method | Endpoint        | Description                        | Auth         |
+| ------ | --------------- | ---------------------------------- | ------------ |
+| POST   | `/experts/`     | Create expert profile              | Expert/Admin |
+| GET    | `/experts/{id}` | Get expert profile                 | Admin        |
+| GET    | `/experts/`     | List all experts                   | Admin        |
+| PATCH  | `/experts/{id}` | Update profile (triggers re-embed) | Expert/Admin |
+| DELETE | `/experts/{id}` | Deactivate expert                  | Admin        |
 
 ### Matching
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| POST | `/matches/run/{candidate_id}` | Trigger matching pipeline | Admin |
-| GET | `/matches/{candidate_id}` | Get ranked match list | Admin |
-| POST | `/matches/{match_id}/approve` | Approve top match | Admin |
-| POST | `/matches/{match_id}/override` | Override with different expert | Admin |
-| GET | `/matches/history` | Full assignment audit log | Admin |
+| Method | Endpoint                       | Description                    | Auth  |
+| ------ | ------------------------------ | ------------------------------ | ----- |
+| POST   | `/matches/run/{candidate_id}`  | Trigger matching pipeline      | Admin |
+| GET    | `/matches/{candidate_id}`      | Get ranked match list          | Admin |
+| POST   | `/matches/{match_id}/approve`  | Approve top match              | Admin |
+| POST   | `/matches/{match_id}/override` | Override with different expert | Admin |
+| GET    | `/matches/history`             | Full assignment audit log      | Admin |
 
 ### Availability
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| POST | `/availability/` | Add slot for candidate or expert | User |
-| GET | `/availability/{user_id}` | Get user's slots | User/Admin |
-| DELETE | `/availability/{slot_id}` | Remove slot | User |
+| Method | Endpoint                  | Description                      | Auth       |
+| ------ | ------------------------- | -------------------------------- | ---------- |
+| POST   | `/availability/`          | Add slot for candidate or expert | User       |
+| GET    | `/availability/{user_id}` | Get user's slots                 | User/Admin |
+| DELETE | `/availability/{slot_id}` | Remove slot                      | User       |
 
 ---
 
@@ -452,7 +472,7 @@ Step 2 — NLP Parsing
 Step 3 — Profile Serialization
   Input:  parsed fields + expert/candidate profile from DB
   Action: Build embedding input string:
-          "[DOMAIN] {domain} [SKILLS] {skills.join(', ')} 
+          "[DOMAIN] {domain} [SKILLS] {skills.join(', ')}
            [EXP] {experience_years} years [BIO] {bio/summary}"
   Output: input_text string (max 512 tokens)
 
@@ -522,13 +542,13 @@ total_score = (
 
 ### Default Weights
 
-| Factor | Weight | Rationale |
-|--------|--------|-----------|
-| Semantic similarity | 0.35 | Core ANN score — overall profile closeness |
-| Skill overlap | 0.25 | Hard skill intersection matters most in tech/gov roles |
-| Experience fit | 0.20 | Expert should have more experience than candidate |
-| Domain exact match | 0.15 | Binary — same primary domain = significant boost |
-| Availability overlap | 0.05 | Ensures practical assignability |
+| Factor               | Weight | Rationale                                              |
+| -------------------- | ------ | ------------------------------------------------------ |
+| Semantic similarity  | 0.35   | Core ANN score — overall profile closeness             |
+| Skill overlap        | 0.25   | Hard skill intersection matters most in tech/gov roles |
+| Experience fit       | 0.20   | Expert should have more experience than candidate      |
+| Domain exact match   | 0.15   | Binary — same primary domain = significant boost       |
+| Availability overlap | 0.05   | Ensures practical assignability                        |
 
 ### Sub-score Definitions
 
@@ -536,12 +556,15 @@ total_score = (
 Raw cosine similarity between candidate and expert embeddings, already normalised to [0, 1].
 
 **Skill overlap score:**
+
 ```
 skill_overlap = |candidate_skills ∩ expert_skills| / |candidate_skills|
 ```
+
 Uses fuzzy matching (RapidFuzz, threshold ≥ 85) to catch near-matches like "ML" ↔ "Machine Learning".
 
 **Experience fit score:**
+
 ```
 # Expert should have meaningfully more experience
 delta = expert_years - candidate_years
@@ -552,12 +575,15 @@ else:            score = 0.2  # expert has less exp than candidate — penalise
 ```
 
 **Domain exact match:**
+
 ```
 score = 1.0 if candidate.domain == expert.domain else 0.0
 ```
+
 (Can be extended to a domain similarity matrix for related fields.)
 
 **Availability overlap score:**
+
 ```
 overlap_hours = sum of overlapping slot durations
 score = min(overlap_hours / 2.0, 1.0)  # 2 hours overlap = full score
@@ -584,6 +610,7 @@ def generate_explanation(candidate, expert, breakdown):
 ## 11. Tech Stack
 
 ### Backend
+
 - **FastAPI** — API framework, async, pydantic validation
 - **Celery** — async task queue for ML pipeline jobs
 - **Redis** — Celery broker + result backend + caching
@@ -594,6 +621,7 @@ def generate_explanation(candidate, expert, breakdown):
 - **pytesseract** — OCR fallback for scanned PDFs
 
 ### ML / NLP
+
 - **spaCy** (en_core_web_lg) — NER, tokenization, skill extraction
 - **sentence-transformers** (all-mpnet-base-v2) — profile embedding
 - **RapidFuzz** — fuzzy skill matching
@@ -601,6 +629,7 @@ def generate_explanation(candidate, expert, breakdown):
 - **Qdrant** — vector database for ANN search
 
 ### Frontend
+
 - **Next.js 14** (App Router) — all three portals
 - **TailwindCSS** — styling
 - **shadcn/ui** — component library
@@ -609,12 +638,14 @@ def generate_explanation(candidate, expert, breakdown):
 - **Axios** — HTTP client
 
 ### Storage
+
 - **PostgreSQL** — primary relational database
 - **Redis** — queue + cache
 - **Qdrant** — vector embeddings
 - **AWS S3 / Cloudflare R2** — resume file storage
 
 ### DevOps / Infra (minimal for hackathon)
+
 - **Docker + Docker Compose** — local dev and deployment
 - **uvicorn** — ASGI server for FastAPI
 - **GitHub** — version control, one repo with monorepo structure
@@ -626,54 +657,58 @@ def generate_explanation(candidate, expert, breakdown):
 With 14 people, split into 4 squads. Each squad owns their layer end-to-end.
 
 ### Squad A — Frontend (3 people)
+
 **Owns:** Next.js app, all 3 portals (candidate, expert, admin)
 
-| Person | Responsibility |
-|--------|---------------|
-| A1 (lead) | Admin dashboard + match review UI |
-| A2 | Candidate portal (onboarding form, resume upload, status page) |
-| A3 | Expert portal (profile form, availability picker) |
+| Person    | Responsibility                                                 |
+| --------- | -------------------------------------------------------------- |
+| A1 (lead) | Admin dashboard + match review UI                              |
+| A2        | Candidate portal (onboarding form, resume upload, status page) |
+| A3        | Expert portal (profile form, availability picker)              |
 
 **Deliverable:** Working UI connected to backend APIs, all 3 portals functional.
 
 ---
 
 ### Squad B — Backend / API (4 people)
+
 **Owns:** FastAPI server, auth, all REST endpoints, Celery job queue, DB schema
 
-| Person | Responsibility |
-|--------|---------------|
-| B1 (lead) | FastAPI app structure, routing, Celery setup, Docker Compose |
-| B2 | Auth service (JWT, roles, register/login endpoints) |
-| B3 | Candidate + expert CRUD endpoints, S3 upload |
-| B4 | Match endpoints, availability endpoints, DB migrations (Alembic) |
+| Person    | Responsibility                                                   |
+| --------- | ---------------------------------------------------------------- |
+| B1 (lead) | FastAPI app structure, routing, Celery setup, Docker Compose     |
+| B2        | Auth service (JWT, roles, register/login endpoints)              |
+| B3        | Candidate + expert CRUD endpoints, S3 upload                     |
+| B4        | Match endpoints, availability endpoints, DB migrations (Alembic) |
 
 **Deliverable:** All API endpoints working, async job queue operational, Postgres schema deployed.
 
 ---
 
 ### Squad C — ML / NLP (4 people)
+
 **Owns:** NLP parser, embedding pipeline, Qdrant integration, Celery ML tasks
 
-| Person | Responsibility |
-|--------|---------------|
-| C1 (lead) | Celery task design, pipeline orchestration, Qdrant setup |
-| C2 | PDF ingestion + NLP parser (pdfplumber + spaCy skill extraction) |
-| C3 | Embedding model (sentence-transformers) + Qdrant upsert/search |
-| C4 | Scoring engine + explanation generator + unit tests for scoring |
+| Person    | Responsibility                                                   |
+| --------- | ---------------------------------------------------------------- |
+| C1 (lead) | Celery task design, pipeline orchestration, Qdrant setup         |
+| C2        | PDF ingestion + NLP parser (pdfplumber + spaCy skill extraction) |
+| C3        | Embedding model (sentence-transformers) + Qdrant upsert/search   |
+| C4        | Scoring engine + explanation generator + unit tests for scoring  |
 
 **Deliverable:** End-to-end pipeline from PDF → ranked match list, all steps tested independently.
 
 ---
 
 ### Squad D — Data / QA / Integration (3 people)
+
 **Owns:** Seed data, test cases, end-to-end integration testing, final demo prep
 
-| Person | Responsibility |
-|--------|---------------|
+| Person    | Responsibility                                                               |
+| --------- | ---------------------------------------------------------------------------- |
 | D1 (lead) | Create 20+ realistic candidate + expert seed profiles, test matching quality |
-| D2 | Integration testing (full flow: submit → match → admin approves), bug triage |
-| D3 | Demo script, slides, system documentation, deployment check |
+| D2        | Integration testing (full flow: submit → match → admin approves), bug triage |
+| D3        | Demo script, slides, system documentation, deployment check                  |
 
 **Deliverable:** 20 seeded profiles, verified end-to-end flow, demo-ready system.
 
@@ -682,6 +717,7 @@ With 14 people, split into 4 squads. Each squad owns their layer end-to-end.
 ## 13. Week Sprint Plan
 
 ### Day 1 (Today / Tonight)
+
 **Goal: Everyone knows what to build. Repos up. Dev environment running.**
 
 - [ ] Repo created, monorepo structure agreed (`/backend`, `/frontend`, `/ml`, `/infra`)
@@ -694,6 +730,7 @@ With 14 people, split into 4 squads. Each squad owns their layer end-to-end.
 ---
 
 ### Day 2
+
 **Goal: Core data layer + auth working. ML pipeline begins.**
 
 - [ ] Backend: Auth endpoints (register, login, JWT) working
@@ -707,6 +744,7 @@ With 14 people, split into 4 squads. Each squad owns their layer end-to-end.
 ---
 
 ### Day 3
+
 **Goal: Full async ML pipeline running. Matching produces results.**
 
 - [ ] ML: Celery task running end-to-end (PDF → parsed → embedded → Qdrant)
@@ -720,6 +758,7 @@ With 14 people, split into 4 squads. Each squad owns their layer end-to-end.
 ---
 
 ### Day 4
+
 **Goal: Admin flow complete. Overrides work. Notifications in place.**
 
 - [ ] Frontend: Match review UI shows ranked experts with score breakdown
@@ -733,6 +772,7 @@ With 14 people, split into 4 squads. Each squad owns their layer end-to-end.
 ---
 
 ### Day 5
+
 **Goal: Polish, edge cases, demo prep. Ship.**
 
 - [ ] Bug fixes from QA pass
@@ -746,6 +786,7 @@ With 14 people, split into 4 squads. Each squad owns their layer end-to-end.
 ---
 
 ### Day 6–7 (Buffer / Final Polish)
+
 - [ ] Stretch: Re-run matching button in admin UI
 - [ ] Stretch: Export assignments as CSV
 - [ ] Stretch: Domain similarity matrix (Engineering ↔ CS = partial match)
@@ -756,11 +797,13 @@ With 14 people, split into 4 squads. Each squad owns their layer end-to-end.
 ## 14. Non-Functional Requirements
 
 ### Performance
+
 - Match pipeline (PDF → ranked result): target < 30 seconds end-to-end
 - API response time for non-ML endpoints: < 300ms p95
 - Qdrant ANN search: < 500ms for top-20 over 1000 expert embeddings
 
 ### Security
+
 - Passwords hashed with bcrypt (minimum cost factor 12)
 - JWT access tokens expire in 30 minutes; refresh tokens in 7 days
 - Resume files stored with UUID filenames (no PII in S3 keys)
@@ -768,11 +811,13 @@ With 14 people, split into 4 squads. Each squad owns their layer end-to-end.
 - No candidate can see another candidate's data or matches
 
 ### Reliability
+
 - Celery tasks have max 3 retries with 30s backoff on failure
 - Failed parse jobs update `parse_status = "failed"` with error logged
 - All DB writes are transactional — partial match saves are rolled back
 
 ### Scalability (design for, not required for demo)
+
 - Expert embeddings are pre-indexed in Qdrant — re-indexing is incremental
 - Celery workers can be horizontally scaled without code changes
 - Stateless FastAPI — can run multiple instances behind a load balancer
@@ -781,22 +826,23 @@ With 14 people, split into 4 squads. Each squad owns their layer end-to-end.
 
 ## 15. Edge Cases & Risk Register
 
-| Risk | Probability | Impact | Mitigation |
-|------|-------------|--------|------------|
-| Scanned/image-only PDF | Medium | High | OCR fallback with pytesseract, flag low-confidence parse |
-| No availability overlap (0 score) | Medium | Medium | Still show match, highlight scheduling conflict in UI |
-| Expert pool too small for a domain | Low | High | Show "no strong match" state with best available |
-| Duplicate skills in different formats ("ML" vs "machine learning") | High | Medium | Fuzzy matching (RapidFuzz ≥ 85 threshold) |
-| Celery task never completes (hung worker) | Low | High | Task timeout (600s), dead letter queue, admin retry button |
-| Embedding model OOM on low-RAM machine | Low | High | Batch size = 1 for demo, truncate input to 512 tokens |
-| Admin approves match with no slots | Low | Medium | UI warning before approval if no slot overlap exists |
-| Two admins simultaneously approving same match | Low | Low | DB-level unique constraint on (candidate_id, status='approved') |
+| Risk                                                               | Probability | Impact | Mitigation                                                      |
+| ------------------------------------------------------------------ | ----------- | ------ | --------------------------------------------------------------- |
+| Scanned/image-only PDF                                             | Medium      | High   | OCR fallback with pytesseract, flag low-confidence parse        |
+| No availability overlap (0 score)                                  | Medium      | Medium | Still show match, highlight scheduling conflict in UI           |
+| Expert pool too small for a domain                                 | Low         | High   | Show "no strong match" state with best available                |
+| Duplicate skills in different formats ("ML" vs "machine learning") | High        | Medium | Fuzzy matching (RapidFuzz ≥ 85 threshold)                       |
+| Celery task never completes (hung worker)                          | Low         | High   | Task timeout (600s), dead letter queue, admin retry button      |
+| Embedding model OOM on low-RAM machine                             | Low         | High   | Batch size = 1 for demo, truncate input to 512 tokens           |
+| Admin approves match with no slots                                 | Low         | Medium | UI warning before approval if no slot overlap exists            |
+| Two admins simultaneously approving same match                     | Low         | Low    | DB-level unique constraint on (candidate_id, status='approved') |
 
 ---
 
 ## 16. Deliverables Checklist
 
 ### Must-Have (MVP)
+
 - [ ] Candidate can submit resume and profile
 - [ ] Expert can create and update profile
 - [ ] ML pipeline runs async and returns ranked match list
@@ -806,12 +852,14 @@ With 14 people, split into 4 squads. Each squad owns their layer end-to-end.
 - [ ] 20 seeded test profiles with verified matching
 
 ### Should-Have
+
 - [ ] Email notifications on assignment
 - [ ] Availability overlap score factored into ranking
 - [ ] OCR fallback for scanned PDFs
 - [ ] Admin can re-trigger matching for any candidate
 
 ### Nice-to-Have (stretch)
+
 - [ ] CSV export of assignments
 - [ ] Domain similarity matrix (partial cross-domain matching)
 - [ ] Confidence threshold UI (flag matches below 0.6 score)
@@ -819,4 +867,4 @@ With 14 people, split into 4 squads. Each squad owns their layer end-to-end.
 
 ---
 
-*Document maintained by project lead. Update version number on any structural change.*
+_Document maintained by project lead. Update version number on any structural change._
