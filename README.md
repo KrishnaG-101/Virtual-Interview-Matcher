@@ -26,13 +26,28 @@ This system ingests candidate resumes and expert profiles, parses skills and exp
 
 ![System Architecture](./Docs/virtual_interview_matcher_arch.svg)
 
-| Layer      | Stack                                            |
-| ---------- | ------------------------------------------------ |
-| Frontend   | Next.js 14, TailwindCSS, shadcn/ui               |
-| API        | FastAPI, JWT auth, Celery + Redis job queue       |
-| ML         | spaCy, sentence-transformers, RapidFuzz, Qdrant  |
-| Storage    | PostgreSQL, Redis, Qdrant, S3                    |
+| Layer    | Stack                                           |
+| -------- | ----------------------------------------------- |
+| Frontend | Next.js 14, TailwindCSS, shadcn/ui              |
+| API      | FastAPI, JWT auth, Celery + Redis job queue     |
+| ML       | spaCy, sentence-transformers, RapidFuzz, Qdrant |
+| Storage  | PostgreSQL, Redis, Qdrant, S3                   |
 
 ## Reference
 
 Full specifications, sprint plan, and data models are in [the PRD](./Docs/virtual_interview_matcher_PRD.md).
+
+## Related Documentation
+
+| Document                                             | Description                                   |
+| ---------------------------------------------------- | --------------------------------------------- |
+| [System Architecture](./Docs/system-architecture.md) | Layer diagram, components, data flow          |
+| [API Specification](./Docs/api.md)                   | All REST endpoints, auth, response formats    |
+| [Database Schema](./Docs/database.md)                | Table definitions, constraints, relationships |
+| [ML Pipeline](./Docs/ml-pipeline.md)                 | NLP, embedding, scoring, Celery tasks         |
+| [Data Seeding](./Docs/data-seeding.md)               | Seed data templates, validation strategy      |
+| [Usage Guide](./Docs/usage.md)                       | Candidate, expert, and admin workflows        |
+| [Deployment](./Docs/deployment.md)                   | Docker Compose, env vars, production notes    |
+| [Frontend](./Docs/frontend.md)                       | Portals, API integration, forms               |
+
+---
